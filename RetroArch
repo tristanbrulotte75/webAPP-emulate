@@ -1,0 +1,26 @@
+buffer TriangleData { RDPCommandData triangles[]; }; // Filled on CPU
+struct PerTileData { uint num_triangles; uint triangle_indices_hitting_this_tile[MAX_TRIANGLES_PER_TILE]; }; // Filled on CPU
+buffer Tiles { PerTileData tile_data[]; };
+buffer Framebuffer { Pixel pixels[]; }; // Streamed from RDRAM on rendering start. Flushed back out to RDRAM when needed (FB readback/modify on CPU).
+
+workgroup_size = (8, 8); // 8x8 tiles, arbitrary.
+
+main()
+{
+	uvec2 pixel = GlobalID.xy;
+	uint frame_buffer = pixels[GlobalID.y * stride + GlobalID.x];
+	uint num_triangles = tile_data[WorkGroupID].num_triangles
+	for (uint i = 0; i < num_triangles; i++)
+	{
+		RDPCommandData tri = triangles[tile_data[WorkGroupID].triangle_indices_hitting_this_tile[i]];
+                 if (rasterizer_test_passes(GlobalID.xy, tri, coverage))
+		{
+			InterpolateData interp = interpolate_color_and_sample_textures();
+			if (depth_testing(frame_buffer))
+			{
+				frame_buffer = combiner_and_blend(frame_buffer, interp, coverage);
+			}
+		}
+	}
+	pixels[GlobalID.y * stride + GlobalID.x] = frame_buffer;
+}
